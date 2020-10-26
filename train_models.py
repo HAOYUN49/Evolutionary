@@ -50,7 +50,7 @@ def train(data, file_name, params, num_epochs=50, batch_size=128, train_temp=1, 
 		model.fit(data.train_data, data.train_labels,
 				batch_size=batch_size,
 				epochs=num_epochs,
-				validation_data=(data.validation_data, data.validation_label),
+				validation_data=(data.validation_data, data.validation_labels),
 				shuffle=True)
 
 	if file_name != None:

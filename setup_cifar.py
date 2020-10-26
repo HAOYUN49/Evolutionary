@@ -1,6 +1,6 @@
 import tensorflow as tf 
 import numpy as np 
-from tensorflow.keras.model import Sequential
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Activation, Flatten
 from tensorflow.keras.layers import Conv2D, MaxPooling2D
 
@@ -46,9 +46,9 @@ class CIFAR:
 		VALIDATION_SIZE = 5000
 
 		self.validation_data = train_data[:VALIDATION_SIZE, :, :, :]
-		self.validation_labels = train_labels[:VALIDATION_SIZE, :, :, :]
+		self.validation_labels = train_labels[:VALIDATION_SIZE, :]
 		self.train_data = train_data[VALIDATION_SIZE:, :, :, :]
-		self.train_labels = train_labels[VALIDATION_SIZE:, :, :, :]
+		self.train_labels = train_labels[VALIDATION_SIZE:, :]
 
 class CIFARModel:
 	def __init__(self, restore=None):

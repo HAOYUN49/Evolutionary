@@ -46,9 +46,9 @@ class MNIST:
 		VALIDATION_SIZE = 5000
 
 		self.validation_data = train_data[:VALIDATION_SIZE, :, :, :]
-		self.validation_labels = train_labels[:VALIDATION_SIZE, :, :, :]
+		self.validation_labels = train_labels[:VALIDATION_SIZE, :]
 		self.train_data = train_data[VALIDATION_SIZE:, :, :, :]
-		self.train_labels = train_labels[VALIDATION_SIZE:, :, :, :]
+		self.train_labels = train_labels[VALIDATION_SIZE:, :]
 
 class  MNISTModel:
 	def __init__(self, restore = None, uss_log=False):

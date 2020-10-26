@@ -11,6 +11,7 @@ import random
 import datetime
 import os
 import argparse
+from math import exp 
 
 from setup_mnist import MNIST, MNISTModel
 from setup_cifar import CIFAR, CIFARModel
@@ -38,19 +39,50 @@ def evolutionary_attack(args, adversarial, original, ori_label, adv_label):
 	m =  np.prod(adversarial.shape) # dimension of the search space
 	k =  np.prod(adversarial.shape) # the number of coordinates for stochastic coordinate selection
 
-	covari_matri = m
+	covari_matri = np.eye(m)
 	evo_path = np.zeros(m) #pc
 	zero_matrix = np.zeros(m)
 	cc = 0.01
 	ccov = 0.001
-	succ_rate = 0
+	succ = 0
 	uu = 1
-	l2_dist = np.sum((adversarial-original)**2)**.5
-	sigma = 0.01 * l2_dist
+	sigma = 0.01 * ((np.sum((adversarial-original)**2))**.5)
 	maxiter = args['maxiter']
 	for i in range(maxiter):
-		perturbation = np.random.multivariate_normal(zero_matrix, covari_matri)
-		uu = uu*
+		#normalize the images？？
+		perturb_random = np.array(np.random.multivariate_normal(zero_matrix, (sigma**2)*covari_matri))
+		perturbation = np.array(perturb_random + uu*(original - adversarial))
+		perturbation = np.clip(perturbation, 0, 1)
+		children = np.array(perturbation.reshape(adversarial.shape) + adversarial)
+		pred_r = model.model.predict(children)
+
+		is_success = True
+		if args['targeted']:
+			if np.argmax(pred_r, 1) != np.argmax(adv_label, 1):
+				is_success = False
+		else:
+			if np.argmax(pred_r, 1) == np.argmax(ori_label, 1):
+				is_success = False
+
+		if not is_success:
+			uu *= exp(succ/i - 1/5)
+			continue
+		else:
+			children_dist = (np.sum((children-original)**2))**.5
+			parent_dist = (np.sum((adversarial-original)**2))**.5
+			if children_dist < parent_dist:
+				succ += 1
+				sigma = 0.01 * children_dist
+				adversarial = children
+				uu *= exp(succ/i - 1/5)
+				evo_path = (1-cc)*evo_path + (((cc*(2-cc))**.5)/sigma)*perturb_random
+				for j in range(m):
+					covari_matri[j][j] = (1-ccov)*covari_matri[j][j] + ccov*((evo_path[j])**2)
+			else:
+				uu *= exp(succ/i - 1/5)
+				continue
+
+
 
 def generate_data(data, model, samples, targeted=False, start=0, seed = 3):
 	
