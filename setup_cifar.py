@@ -20,7 +20,7 @@ def load_batch(filename):
 		img = arr[1:].reshape((3, 32, 32)).transpose((1, 2, 0))
 
 		labels.append(lab)
-		images.append((img/255)-.5)
+		images.append((img/255))
 	return np.array(images), np.array(labels)
 
 class CIFAR:

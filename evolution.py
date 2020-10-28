@@ -3,7 +3,7 @@
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.kreas.prepocessing import image
+from tensorflow.keras.preprocessing import image
 from PIL import Image
 import pickle
 import time
@@ -54,7 +54,7 @@ def evolutionary_attack(args, adversarial, original, ori_label, adv_label):
 		perturbation = np.array(perturb_random + uu*(original - adversarial))
 		perturbation = np.clip(perturbation, 0, 1)
 		children = np.array(perturbation.reshape(adversarial.shape) + adversarial)
-		pred_r = model.model.predict(children)
+		pred_r = model.model.predict(children[np.newaxis, :, :, :])
 
 		is_success = True
 		if args['targeted']:
@@ -101,7 +101,7 @@ def generate_data(data, model, samples, targeted=False, start=0, seed = 3):
 			seq = np.random.randint(data.test_labels.shape[0])
 			adversarial = data.test_data[seq]
 			while True:
-				pred_r = model.model.predict(adversarial)
+				pred_r = model.model.predict(adversarial[np.newaxis, :, :, :])
 				if (np.argmax(pred_r, 1) != np.argmax(ori_label, 1)):
 					break
 				seq = np.random.randint(data.test_labels.shape[0])
@@ -113,7 +113,7 @@ def generate_data(data, model, samples, targeted=False, start=0, seed = 3):
 			#inputs(random but adversarial)
 			adversarial = np.random.random(target.shape)
 			while True:
-				pred_r = model.model.predict(adversarial)
+				pred_r = model.model.predict(adversarial[np.newaxis, :, :, :])
 				if (np.argmax(pred_r, 1) != np.argmax(label, 1)):
 					break
 				adversarial = np.random.random(target.shape)
@@ -166,7 +166,7 @@ def main(args):
 		#test whether the image is correctly classified
 		true_label = np.argmax(ori_label, 1)
 		print("true labels:", true_label)
-		original_predict = model.model.predict(original)
+		original_predict = model.model.predict(original[np.newaxis, :, :, :])
 		predicted_class =  np.argmax(original_predict, 1)
 		print("origial classification:", predicted_class)
 		if (true_label != predicted_class):
@@ -179,7 +179,7 @@ def main(args):
 		timeend = time.time()
 		MSE = tf.keras.losses.MSE(adv, original)
 		MSE_total += MSE
-		adversarial_predict = model.model.predict(adv)
+		adversarial_predict = model.model.predict(adv[np.newaxis, :, :, :])
 		adversarial_class = np.argmax(adversarial_predict, 1)
 		print("adversarial classification:", adversarial_class)
 		suffix = "id{}_prev{}_adv{}_dist(MSE){}".format(all_true_ids[i], predicted_class, adversarial_class, MSE)
@@ -203,7 +203,7 @@ if __name__ == "__main__":
 	parser.add_argument("-m", "--maxiter", type=int, default=0, help="set 0 to default value")
 	parser.add_argument("-f", "--firstimg", type=int, default=0, help="number of image to start with")
 	parser.add_argument("-ta", "--targeted", default = False, action="store_true")
-	parser.add_argument("-sd", "--seed", type=int, default = 373, action="seed for generating random number")
+	parser.add_argument("-sd", "--seed", type=int, default = 373, help="seed for generating random number")
 	#parser.add_argument("-p", "--propotional", action='store_true')
 	args = vars(parser.parse_args())
 	if args['targeted']:
@@ -213,9 +213,9 @@ if __name__ == "__main__":
 
 	if args['maxiter'] == 0:
 		if args['dataset'] == "mnist":
-			arg['maxiter'] = 3000
+			args['maxiter'] = 3000
 		elif args['dataset'] == "cifar10":
-			arg['maxiter'] = 1000
+			args['maxiter'] = 1000
 
 	print(args)
 	main(args)
