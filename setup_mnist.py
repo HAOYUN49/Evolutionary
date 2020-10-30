@@ -31,14 +31,14 @@ class MNIST:
 	def __init__(self):
 		if not os.path.exists("data"):
 			os.mkdir("data")
-			files = ["trian-images-idx3-ubyte.gz",
+			files = ["train-images-idx3-ubyte.gz",
 					"t10k-images-idx3-ubyte.gz",
 					"train-labels-idx1-ubyte.gz",
 					"t10k-labels-idx1-ubyte.gz"]
 			for name in files:
 				urllib.request.urlretrieve('http://yann.lecun.com/exdb/mnist/' + name, "data/"+name)
 
-		train_data = extract_data("data/trian-images-idx3-ubyte.gz", 60000)
+		train_data = extract_data("data/train-images-idx3-ubyte.gz", 60000)
 		train_labels = extract_labels("data/train-labels-idx1-ubyte.gz", 60000)
 		self.test_data = extract_data("data/t10k-images-idx3-ubyte.gz", 10000)
 		self.test_labels = extract_labels("data/t10k-labels-idx1-ubyte.gz", 10000)

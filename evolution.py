@@ -28,12 +28,12 @@ from setup_cifar import CIFAR, CIFARModel
 #impersonation attack
 
 def show(img, name = "output.png"):
-	fig  = (img + 0.5)*255
+	fig  = img*255
 	fig = fig.astype(np.uint8).squeeze()
 	pic = Image.fromarray(fig)
 	pic.save(name)
 
-def evolutionary_attack(args, adversarial, original, ori_label, adv_label):
+def evolutionary_attack(args, model, adversarial, original, ori_label, adv_label, seed=3):
 	
 	n =  np.prod(adversarial.shape) # the dimension of the input space
 	m =  np.prod(adversarial.shape) # dimension of the search space
@@ -42,46 +42,63 @@ def evolutionary_attack(args, adversarial, original, ori_label, adv_label):
 	covari_matri = np.eye(m)
 	evo_path = np.zeros(m) #pc
 	zero_matrix = np.zeros(m)
+	#print("shape of covari_matri:", covari_matri.shape)
+	#print("shape of evo_path:", evo_path.shape)
+	#print("shape of zero_matrix:", zero_matrix.shape)
+	original = np.array(original)
+	adversarial = np.array(adversarial)
 	cc = 0.01
 	ccov = 0.001
 	succ = 0
 	uu = 1
 	sigma = 0.01 * ((np.sum((adversarial-original)**2))**.5)
 	maxiter = args['maxiter']
+	random.seed(seed)
 	for i in range(maxiter):
 		#normalize the images？？
+		print("{}th iteration: l2 dist is {}".format(i+1, (np.sum((adversarial-original)**2))**.5))
 		perturb_random = np.array(np.random.multivariate_normal(zero_matrix, (sigma**2)*covari_matri))
-		perturbation = np.array(perturb_random + uu*(original - adversarial))
-		perturbation = np.clip(perturbation, 0, 1)
-		children = np.array(perturbation.reshape(adversarial.shape) + adversarial)
-		pred_r = model.model.predict(children[np.newaxis, :, :, :])
+		#print("shape of perturb_random:", perturb_random.shape)
+		perturbation = np.array(perturb_random.reshape(original.shape) + uu*(original - adversarial))
+		#print("shape of perturbation:", perturbation.shape)
+		children = np.array(perturbation + adversarial)
+		children = np.clip(children, 0, 1)
+		#print("children:")
+		#print(children)
+		#print("shape of children:", children.shape)
+		pred_r = model.model.predict(children)
 
 		is_success = True
 		if args['targeted']:
-			if np.argmax(pred_r, 1) != np.argmax(adv_label, 1):
+			if np.argmax(pred_r, 1) != np.argmax(adv_label):
 				is_success = False
 		else:
-			if np.argmax(pred_r, 1) == np.argmax(ori_label, 1):
+			if np.argmax(pred_r, 1) == np.argmax(ori_label):
 				is_success = False
 
 		if not is_success:
-			uu *= exp(succ/i - 1/5)
+			uu *= exp(succ/(i+1) - 1/5)
 			continue
 		else:
 			children_dist = (np.sum((children-original)**2))**.5
 			parent_dist = (np.sum((adversarial-original)**2))**.5
 			if children_dist < parent_dist:
+				print("evo_path:")
+				print(evo_path)
+				print("covari_matri:")
+				print(covari_matri)
 				succ += 1
 				sigma = 0.01 * children_dist
-				adversarial = children
-				uu *= exp(succ/i - 1/5)
+				adversarial = np.array(children)
+				uu *= exp(succ/(i+1) - 1/5)
 				evo_path = (1-cc)*evo_path + (((cc*(2-cc))**.5)/sigma)*perturb_random
 				for j in range(m):
 					covari_matri[j][j] = (1-ccov)*covari_matri[j][j] + ccov*((evo_path[j])**2)
 			else:
-				uu *= exp(succ/i - 1/5)
+				uu *= exp(succ/(i+1) - 1/5)
 				continue
 
+	return adversarial
 
 
 def generate_data(data, model, samples, targeted=False, start=0, seed = 3):
@@ -98,11 +115,12 @@ def generate_data(data, model, samples, targeted=False, start=0, seed = 3):
 		target = data.test_data[start+i]
 		ori_label = data.test_labels[start+i]
 		if targeted:
+
 			seq = np.random.randint(data.test_labels.shape[0])
 			adversarial = data.test_data[seq]
 			while True:
 				pred_r = model.model.predict(adversarial[np.newaxis, :, :, :])
-				if (np.argmax(pred_r, 1) != np.argmax(ori_label, 1)):
+				if (np.argmax(pred_r, 1) != np.argmax(ori_label)):
 					break
 				seq = np.random.randint(data.test_labels.shape[0])
 				adversarial = data.test_data[seq]
@@ -114,10 +132,10 @@ def generate_data(data, model, samples, targeted=False, start=0, seed = 3):
 			adversarial = np.random.random(target.shape)
 			while True:
 				pred_r = model.model.predict(adversarial[np.newaxis, :, :, :])
-				if (np.argmax(pred_r, 1) != np.argmax(label, 1)):
+				if (np.argmax(pred_r, 1) != np.argmax(ori_label)):
 					break
 				adversarial = np.random.random(target.shape)
-			adv_label=np.eye(data.test_labels.shape[1][np.argmax(pred_r, 1)])
+			adv_label=np.eye(data.test_labels.shape[1])[np.argmax(pred_r, 1)]
 
 		inputs.append(adversarial)
 		targets.append(target)
@@ -153,8 +171,8 @@ def main(args):
 	all_inputs, all_targets, all_adv_labels, all_ori_labels, all_true_ids = generate_data(data, model, samples=args['numing'], targeted=args['targeted'],
 																		start=args['firstimg'], seed=args['seed'])
 	print("Done...")
-	os.system("mkdir -p {}/{}".format(args[save], args['dataset']))
-	img_no = firstimg
+	os.system("mkdir -p {}/{}/{}".format(args['save'], args['dataset'], args['attack']))
+	img_no = args['firstimg']
 	MSE_total = .0 #tf.keras.losses.MSE(a, b)
 
 	for i in range(all_true_ids.size):
@@ -166,7 +184,7 @@ def main(args):
 		#test whether the image is correctly classified
 		true_label = np.argmax(ori_label, 1)
 		print("true labels:", true_label)
-		original_predict = model.model.predict(original[np.newaxis, :, :, :])
+		original_predict = model.model.predict(original)
 		predicted_class =  np.argmax(original_predict, 1)
 		print("origial classification:", predicted_class)
 		if (true_label != predicted_class):
@@ -175,18 +193,18 @@ def main(args):
 
 		img_no += 1
 		timestart = time.time()
-		adv =  evolutionary_attack(args, adversarial, original, ori_label, adv_label)
+		adv =  evolutionary_attack(args, model, adversarial, original, ori_label, adv_label, seed=args['seed'])
 		timeend = time.time()
-		MSE = tf.keras.losses.MSE(adv, original)
+		MSE = np.sum(np.square(adv - original))/np.prod(adv.shape)
 		MSE_total += MSE
-		adversarial_predict = model.model.predict(adv[np.newaxis, :, :, :])
+		adversarial_predict = model.model.predict(adv)
 		adversarial_class = np.argmax(adversarial_predict, 1)
 		print("adversarial classification:", adversarial_class)
 		suffix = "id{}_prev{}_adv{}_dist(MSE){}".format(all_true_ids[i], predicted_class, adversarial_class, MSE)
 		print("Saving to", suffix)
-		show(original, "{}/{}/{}/{}_original_{}.png".format(args['save'], args["dataset"], args["attack"], img_no, suffix))
-		show(adv, "{}/{}/{}/{}_adversarial_{}.png".format(args['save'], args["dataset"], args["attack"], img_no, suffix))
-		show(adv - original, "{}/{}/{}/{}_diff_{}.png".format(args['save'], args['dataset'], args['attack'], img_no, suffix))
+		show(original, "{}/{}/{}/{}_original_{.5f}.png".format(args['save'], args["dataset"], args["attack"], img_no, suffix))
+		show(adv, "{}/{}/{}/{}_adversarial_{.5f}.png".format(args['save'], args["dataset"], args["attack"], img_no, suffix))
+		show(adv - original, "{}/{}/{}/{}_diff_{.5f}.png".format(args['save'], args['dataset'], args['attack'], img_no, suffix))
 		print("[STATS][L1] total = {}, id = {}, time = {:.3f}, prev_class = {}, new_class = {}, distortion(MSE) = {:.5f}, average MSE: {:.5f}".format(img_no, all_true_ids[i], timeend - timestart, predicted_class, adversarial_class, MSE, MSE_total/img_no))
 		sys.stdout.flush()
 
@@ -213,7 +231,7 @@ if __name__ == "__main__":
 
 	if args['maxiter'] == 0:
 		if args['dataset'] == "mnist":
-			args['maxiter'] = 3000
+			args['maxiter'] = 1000
 		elif args['dataset'] == "cifar10":
 			args['maxiter'] = 1000
 
