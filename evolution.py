@@ -202,9 +202,9 @@ def main(args):
 		print("adversarial classification:", adversarial_class)
 		suffix = "id{}_prev{}_adv{}_dist(MSE){}".format(all_true_ids[i], predicted_class, adversarial_class, MSE)
 		print("Saving to", suffix)
-		show(original, "{}/{}/{}/{}_original_{.5f}.png".format(args['save'], args["dataset"], args["attack"], img_no, suffix))
-		show(adv, "{}/{}/{}/{}_adversarial_{.5f}.png".format(args['save'], args["dataset"], args["attack"], img_no, suffix))
-		show(adv - original, "{}/{}/{}/{}_diff_{.5f}.png".format(args['save'], args['dataset'], args['attack'], img_no, suffix))
+		show(original, "{}/{}/{}/{}_original_{}.png".format(args['save'], args["dataset"], args["attack"], img_no, suffix))
+		show(adv, "{}/{}/{}/{}_adversarial_{}.png".format(args['save'], args["dataset"], args["attack"], img_no, suffix))
+		show(adv - original, "{}/{}/{}/{}_diff_{}.png".format(args['save'], args['dataset'], args['attack'], img_no, suffix))
 		print("[STATS][L1] total = {}, id = {}, time = {:.3f}, prev_class = {}, new_class = {}, distortion(MSE) = {:.5f}, average MSE: {:.5f}".format(img_no, all_true_ids[i], timeend - timestart, predicted_class, adversarial_class, MSE, MSE_total/img_no))
 		sys.stdout.flush()
 
