@@ -35,9 +35,12 @@ def show(img, name = "output.png"):
 
 def evolutionary_attack(args, model, adversarial, original, ori_label, adv_label, seed=3):
 	
-	n =  np.prod(adversarial.shape) # the dimension of the input space
-	m =  np.prod(adversarial.shape) # dimension of the search space
-	k =  np.prod(adversarial.shape) # the number of coordinates for stochastic coordinate selection
+	n = np.prod(adversarial.shape)
+	m = np.prod(adversarial.shape)
+	k = np.prod(adversarial.shape) 
+	# the dimension of the input space
+	# dimension of the search space
+	# the number of coordinates for stochastic coordinate selection
 
 	covari_matri = np.eye(m)
 	evo_path = np.zeros(m) #pc
@@ -59,7 +62,7 @@ def evolutionary_attack(args, model, adversarial, original, ori_label, adv_label
 		print("{}th iteration: l2 dist is {}".format(i+1, (np.sum((adversarial-original)**2))**.5))
 		perturb_random = np.array(np.random.multivariate_normal(zero_matrix, (sigma**2)*covari_matri))
 		#print("shape of perturb_random:", perturb_random.shape)
-		perturbation = np.array(perturb_random.reshape(original.shape) + uu*(original - adversarial))
+		perturbation = np.array(perturb_random.reshape(adversarial.shape) + uu*(original - adversarial))
 		#print("shape of perturbation:", perturbation.shape)
 		children = np.array(perturbation + adversarial)
 		children = np.clip(children, 0, 1)
@@ -88,10 +91,10 @@ def evolutionary_attack(args, model, adversarial, original, ori_label, adv_label
 				print("covari_matri:")
 				print(covari_matri)
 				succ += 1
-				sigma = 0.01 * children_dist
 				adversarial = np.array(children)
 				uu *= exp(succ/(i+1) - 1/5)
 				evo_path = (1-cc)*evo_path + (((cc*(2-cc))**.5)/sigma)*perturb_random
+				sigma = 0.01 * children_dist
 				for j in range(m):
 					covari_matri[j][j] = (1-ccov)*covari_matri[j][j] + ccov*((evo_path[j])**2)
 			else:
@@ -182,10 +185,12 @@ def main(args):
 		adv_label = all_adv_labels[i:i+1]
 		
 		#test whether the image is correctly classified
-		true_label = np.argmax(ori_label, 1)
+		true_label = np.argmax(ori_label)
 		print("true labels:", true_label)
 		original_predict = model.model.predict(original)
-		predicted_class =  np.argmax(original_predict, 1)
+		original_predict = np.squeeze(original_predict)
+		original_class = np.argsort(original_predict)
+		predicted_class =  original_class[-1]
 		print("origial classification:", predicted_class)
 		if (true_label != predicted_class):
 			print("Skip wrongly classified image no. {}, original class {}, classified as {}".format(true_ids[i], true_label, predicted_class))
@@ -193,9 +198,10 @@ def main(args):
 
 		img_no += 1
 		timestart = time.time()
+		print("START", i+1, "ATTACK:")
 		adv =  evolutionary_attack(args, model, adversarial, original, ori_label, adv_label, seed=args['seed'])
 		timeend = time.time()
-		MSE = np.sum(np.square(adv - original))/np.prod(adv.shape)
+		MSE = np.sum((adv - original)**2)/(adv.shape[0]*adv.shape[1])
 		MSE_total += MSE
 		adversarial_predict = model.model.predict(adv)
 		adversarial_class = np.argmax(adversarial_predict, 1)
@@ -235,6 +241,8 @@ if __name__ == "__main__":
 		elif args['dataset'] == "cifar10":
 			args['maxiter'] = 1000
 
+	random.seed(args["seed"])
+	np.random.seed(args["seed"])
 	print(args)
 	main(args)
 	#evolutionary_attack(args)
